@@ -14,7 +14,7 @@ const stats = DATA.stats;
 // Layers: id, label, one-line meaning, default on, group. The page renders one chip per layer.
 const LAYERS = [
   // id, label, meaning, default, group
-  ["tca", "TCA steps", "The Toronto Terminal Control Area, Class C: an upside-down wedding cake. Each floor is where controlled airspace starts at that distance from the Toronto VOR; the walls are the outer edge of each step. Use Highlight a step above to see one at a time.", true, "airspace"],
+  ["tca", "TCA steps", "The Toronto Terminal Control Area, Class C: an upside-down wedding cake. Each floor is where controlled airspace starts at that distance from the Toronto VOR; the walls are the outer edge of each step. Use the Highlight steps chips to light one or more.", true, "airspace"],
   ["cz", "Control zones", "The Pearson control zone, 7 NM around the airport from the surface to 2,500 ft, and the Billy Bishop zone.", true, "airspace"],
   ["tcalabels", "Altitude labels", "Floor and ceiling of each step, in feet above sea level.", true, "airspace"],
   ["runways", "Runways", "The five Pearson runways and Billy Bishop 08/26 at true position, widened to read. Hexagons are the YYZ and YTP VOR-DMEs.", true, "map"],
@@ -44,13 +44,13 @@ const still = matchMedia("(prefers-reduced-motion: reduce)");
 const $ = (s) => document.querySelector(s);
 const ui = { play: $("[data-play]"), speed: $("[data-speed]"), time: $("[data-time]"), clock: $("[data-clock]"), panel: $("#panel"), menu: $("[data-menu]"), info: $("#info"), infoBody: $("#info .body"), infoTitle: $("#info h3") };
 // One state object drives everything. Chips carry data-chip="kind:value".
-const state = { layer: {}, scale: "3.3", view: "area", step: "all" };
+const state = { layer: {}, scale: "3.3", view: "area", hl: {} };
 document.querySelectorAll('[data-chip^="layer:"]').forEach((el) => { state.layer[el.dataset.chip.slice(6)] = el.hasAttribute("data-on"); });
 const on = (id) => !!state.layer[id];
 function paintChips() {
   document.querySelectorAll("[data-chip]").forEach((el) => {
     const [kind, value] = el.dataset.chip.split(":");
-    const active = kind === "layer" ? on(value) : state[kind] === value;
+    const active = kind === "layer" ? on(value) : kind === "hl" ? !!state.hl[value] : state[kind] === value;
     el.setAttribute("aria-pressed", active ? "true" : "false");
   });
 }
@@ -183,9 +183,10 @@ DATA.airspace.forEach((a, index) => {
   lab.position.set(far[0], ft(a.floor_ft) + 0.15, -far[1]); G.tcalabels.add(lab);
   steps.push({ index, isCZ, floorMat, wallMat, edgeMat, lab });
 });
-function highlightStep(which) {
+function highlightStep(set) {
+  const any = Object.values(set).some(Boolean);
   for (const s of steps) {
-    const pick = which === "all" ? null : s.index === Number(which);
+    const pick = any ? !!set[s.index] : null;
     s.floorMat.opacity = pick === null ? 0.1 : pick ? 0.3 : 0.03;
     s.wallMat.opacity = pick === null ? 0.035 : pick ? 0.14 : 0.01;
     s.floorMat.color.copy(pick ? T.lit : s.isCZ ? T.mid : T.hi);
@@ -279,7 +280,7 @@ function applyLayers() {
   for (const cat in allTracks) allTracks[cat].visible = on(CAT_LAYER[cat]);
   trails.visible = on("trails"); stems.visible = on("stems"); shadows.visible = on("stems");
   air.scale.y = (Number(state.scale) * TRUE_VEX) / VEX;
-  highlightStep(state.step);
+  highlightStep(state.hl);
   paintChips();
 }
 function update() {
@@ -407,13 +408,14 @@ document.querySelectorAll("[data-chip]").forEach((el) => el.addEventListener("cl
   const [kind, value] = el.dataset.chip.split(":");
   const now = performance.now(), dbl = lastTap.chip === el && now - lastTap.at < 420;
   lastTap = { chip: el, at: now };
-  if (kind === "layer") {
-    if (dbl) { for (const o of el.closest("[data-group]").querySelectorAll('[data-chip^="layer:"]')) state.layer[o.dataset.chip.slice(6)] = o === el; }
-    else state.layer[value] = !state.layer[value];
+  if (kind === "layer" || kind === "hl") {
+    const map = kind === "layer" ? state.layer : state.hl, prefix = kind + ":";
+    if (dbl) { for (const o of el.closest("[data-group]").querySelectorAll('[data-chip^="' + prefix + '"]')) map[o.dataset.chip.slice(prefix.length)] = o === el; }
+    else map[value] = !map[value];
+    if (kind === "hl" && map[value]) { state.layer.tca = true; state.layer.cz = true; }
   } else {
-    state[kind] = kind === "step" && state.step === value ? "all" : value;   // tapping the lit step again clears the highlight
+    state[kind] = value;
     if (kind === "view") placeCamera(VIEWS[value]);
-    if (kind === "step" && value !== "all") { state.layer.tca = true; state.layer.cz = true; }
   }
   applyLayers(); touch();
 }));
@@ -458,7 +460,7 @@ frame = requestAnimationFrame(tick);
 const airspaceText = `
 <p><b>How to read the airspace.</b> The Toronto Terminal Control Area is Class C: every aircraft inside needs a clearance from the terminal controller. It is shaped like an upside-down wedding cake around the Toronto VOR. Close in, controlled airspace starts low; further out, it starts higher, so aircraft flying under it can get in and out of the small airports around the city.</p>
 <p>Step A: 1,700 to 2,000 ft within 12 NM. Step B: 2,000 to 2,500 ft out to 15 NM east and 20 NM west. Step C: 2,500 to 3,500 ft within 20 NM. Step D: 3,500 to 4,500 ft within 26 NM. Step E: 4,500 to 12,500 ft within 26 NM. Under 1,700 ft near the airport the Pearson control zone takes over, 7 NM around the field from the surface to 2,500 ft. The bites out of the steps are the Brampton and Buttonville airports and the Billy Bishop zone, kept outside Class C.</p>
-<p>Each sheet you see is a floor: the altitude where Class C begins at that distance. The walls are the outer edge of each step. Pick a step chip and it lights with the rest dimmed.</p>`;
+<p>Each sheet you see is a floor: the altitude where Class C begins at that distance. The walls are the outer edge of each step. Tap step chips to light them with the rest dimmed; tap twice for only that one; tap again to clear.</p>`;
 const about = `
 <p>The board is 100 NM across, centred on the Toronto VOR. The board surface is the airport elevation, 569 ft above sea level, and every height is drawn from there; the labels keep the published above-sea-level numbers. Heights are drawn at 3.3 times true scale by default so the steps read; the Heights chips go from true scale to 15 times.</p>
 <p>The aircraft are real. Every one is an ADS-B broadcast received on 1 October 2026 by the ADS-B Exchange receiver network, published as a free sample day: ${stats.flights} flights within 55 NM below 20,000 ft. Position, altitude, speed, track, callsign and type come from the aircraft. Arrival or departure, and the runway, are inferred from where each track starts and ends. Altitude is pressure altitude, not corrected to the local altimeter. Where no receiver heard an aircraft for more than two minutes it is left out rather than drawn as a straight line. The airport's ADS-B test beacon (registration TWR) is removed.</p>
@@ -468,11 +470,11 @@ const about = `
 const chip = (kind, value, label, onDefault = false, title = "") => `<button type="button" class="chip" data-chip="${kind}:${value}"${onDefault ? " data-on" : ""} aria-pressed="${onDefault}"${title ? ` title="${title.replace(/"/g, "&quot;")}"` : ""}>${label}</button>`;
 const groupBlock = (id, title, chips, info) => `<section data-group="${id}"><h2><span title="Tap: all on or off">${title}</span>${info ? `<button type="button" class="info" data-info="${id}" aria-label="About ${title}">i</button>` : ""}</h2><div class="chips">${chips}</div></section>`;
 const layerChips = (group) => LAYERS.filter((l) => l[4] === group).map(([id, label, note, def]) => chip("layer", id, label, def, note)).join("");
-const stepChips = chip("step", "all", "None", true, "No step highlighted") + STEPS.map((st) => chip("step", String(st.i), st.name.includes("CZ") ? (st.name.includes("Pearson") ? "Pearson CZ" : "Bishop CZ") : st.name.slice(-1).toUpperCase(), false, (st.floor ? st.floor.toLocaleString() : "surface") + " to " + st.ceiling.toLocaleString() + " ft")).join("");
+const stepChips = STEPS.map((st) => chip("hl", String(st.i), st.name.includes("CZ") ? (st.name.includes("Pearson") ? "Pearson CZ" : "Bishop CZ") : st.name.slice(-1).toUpperCase(), false, (st.floor ? st.floor.toLocaleString() : "surface") + " to " + st.ceiling.toLocaleString() + " ft")).join("");
 const panelHtml = `
 <nav id="panel" aria-label="Controls">
   <p class="howto">Tap a chip: on or off. Tap it twice: only that one. Tap a group name: all or none.</p>
-  ${groupBlock("airspace", "Airspace", layerChips("airspace") + `<div class="sub">Highlight one step</div>` + stepChips, true)}
+  ${groupBlock("airspace", "Airspace", layerChips("airspace") + `<div class="sub">Highlight steps</div>` + stepChips, true)}
   ${groupBlock("heights", "Heights", ["1", "3.3", "6", "10", "15"].map((v) => chip("scale", v, v === "1" ? "True" : v + "×", v === "3.3")).join(""), true)}
   ${groupBlock("traffic", "Traffic", layerChips("traffic"), true)}
   ${groupBlock("overlay", "Overlays", layerChips("overlay"), true)}

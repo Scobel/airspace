@@ -154,7 +154,7 @@ body{background:var(--anatomy-card);color:var(--anatomy-text);font:13px/1.45 ui-
 
 <nav id="panel" aria-label="Controls">
   <p class="howto">Tap a chip: on or off. Tap it twice: only that one. Tap a group name: all or none.</p>
-  <section data-group="airspace"><h2><span title="Tap: all on or off">Airspace</span><button type="button" class="info" data-info="airspace" aria-label="About Airspace">i</button></h2><div class="chips"><button type="button" class="chip" data-chip="layer:tca" data-on aria-pressed="true" title="The Toronto Terminal Control Area, Class C: an upside-down wedding cake. Each floor is where controlled airspace starts at that distance from the Toronto VOR; the walls are the outer edge of each step. Use Highlight a step above to see one at a time.">TCA steps</button><button type="button" class="chip" data-chip="layer:cz" data-on aria-pressed="true" title="The Pearson control zone, 7 NM around the airport from the surface to 2,500 ft, and the Billy Bishop zone.">Control zones</button><button type="button" class="chip" data-chip="layer:tcalabels" data-on aria-pressed="true" title="Floor and ceiling of each step, in feet above sea level.">Altitude labels</button><div class="sub">Highlight one step</div><button type="button" class="chip" data-chip="step:all" data-on aria-pressed="true" title="No step highlighted">None</button><button type="button" class="chip" data-chip="step:0" aria-pressed="false" title="1,700 to 2,000 ft">A</button><button type="button" class="chip" data-chip="step:1" aria-pressed="false" title="2,000 to 2,500 ft">B</button><button type="button" class="chip" data-chip="step:2" aria-pressed="false" title="2,500 to 3,500 ft">C</button><button type="button" class="chip" data-chip="step:3" aria-pressed="false" title="3,500 to 4,500 ft">D</button><button type="button" class="chip" data-chip="step:4" aria-pressed="false" title="4,500 to 12,500 ft">E</button><button type="button" class="chip" data-chip="step:5" aria-pressed="false" title="surface to 2,500 ft">Pearson CZ</button><button type="button" class="chip" data-chip="step:6" aria-pressed="false" title="surface to 2,500 ft">Bishop CZ</button></div></section>
+  <section data-group="airspace"><h2><span title="Tap: all on or off">Airspace</span><button type="button" class="info" data-info="airspace" aria-label="About Airspace">i</button></h2><div class="chips"><button type="button" class="chip" data-chip="layer:tca" data-on aria-pressed="true" title="The Toronto Terminal Control Area, Class C: an upside-down wedding cake. Each floor is where controlled airspace starts at that distance from the Toronto VOR; the walls are the outer edge of each step. Use the Highlight steps chips to light one or more.">TCA steps</button><button type="button" class="chip" data-chip="layer:cz" data-on aria-pressed="true" title="The Pearson control zone, 7 NM around the airport from the surface to 2,500 ft, and the Billy Bishop zone.">Control zones</button><button type="button" class="chip" data-chip="layer:tcalabels" data-on aria-pressed="true" title="Floor and ceiling of each step, in feet above sea level.">Altitude labels</button><div class="sub">Highlight steps</div><button type="button" class="chip" data-chip="hl:0" aria-pressed="false" title="1,700 to 2,000 ft">A</button><button type="button" class="chip" data-chip="hl:1" aria-pressed="false" title="2,000 to 2,500 ft">B</button><button type="button" class="chip" data-chip="hl:2" aria-pressed="false" title="2,500 to 3,500 ft">C</button><button type="button" class="chip" data-chip="hl:3" aria-pressed="false" title="3,500 to 4,500 ft">D</button><button type="button" class="chip" data-chip="hl:4" aria-pressed="false" title="4,500 to 12,500 ft">E</button><button type="button" class="chip" data-chip="hl:5" aria-pressed="false" title="surface to 2,500 ft">Pearson CZ</button><button type="button" class="chip" data-chip="hl:6" aria-pressed="false" title="surface to 2,500 ft">Bishop CZ</button></div></section>
   <section data-group="heights"><h2><span title="Tap: all on or off">Heights</span><button type="button" class="info" data-info="heights" aria-label="About Heights">i</button></h2><div class="chips"><button type="button" class="chip" data-chip="scale:1" aria-pressed="false">True</button><button type="button" class="chip" data-chip="scale:3.3" data-on aria-pressed="true">3.3×</button><button type="button" class="chip" data-chip="scale:6" aria-pressed="false">6×</button><button type="button" class="chip" data-chip="scale:10" aria-pressed="false">10×</button><button type="button" class="chip" data-chip="scale:15" aria-pressed="false">15×</button></div></section>
   <section data-group="traffic"><h2><span title="Tap: all on or off">Traffic</span><button type="button" class="info" data-info="traffic" aria-label="About Traffic">i</button></h2><div class="chips"><button type="button" class="chip" data-chip="layer:arrivals" data-on aria-pressed="true" title="Flights that end on a Pearson runway: 540 on this day.">Arrivals</button><button type="button" class="chip" data-chip="layer:departures" data-on aria-pressed="true" title="Flights that start on a Pearson runway: 574.">Departures</button><button type="button" class="chip" data-chip="layer:overflights" data-on aria-pressed="true" title="Flights that cross the area without landing at Pearson: 401.">Overflights</button><button type="button" class="chip" data-chip="layer:ytz" data-on aria-pressed="true" title="Arrivals and departures at Toronto City airport: 179.">Billy Bishop</button><button type="button" class="chip" data-chip="layer:ground" data-on aria-pressed="true" title="Taxiing aircraft, drawn small.">On ground</button></div></section>
   <section data-group="overlay"><h2><span title="Tap: all on or off">Overlays</span><button type="button" class="info" data-info="overlay" aria-label="About Overlays">i</button></h2><div class="chips"><button type="button" class="chip" data-chip="layer:trails" data-on aria-pressed="true" title="Where each aircraft has just been. Gaps in receiver coverage are left blank, not bridged.">Trails</button><button type="button" class="chip" data-chip="layer:stems" data-on aria-pressed="true" title="A line from each aircraft straight down to its shadow on the board, so height reads. Not a flight path.">Height stems</button><button type="button" class="chip" data-chip="layer:alltracks" aria-pressed="false" title="Every flight path of 1 October 2026 at once, by category. Shows the arrival downwinds, bases and finals and the departure fans.">All-day tracks</button><button type="button" class="chip" data-chip="layer:datablocks" data-on aria-pressed="true" title="Callsign, type, altitude in hundreds of feet, ground speed and runway. Tap an aircraft; tap it twice to follow it.">Data block</button><button type="button" class="chip" data-chip="layer:alllabels" aria-pressed="false" title="A tag on every airborne aircraft. Busy at peak times.">All callsigns</button></div></section>
@@ -167,7 +167,7 @@ body{background:var(--anatomy-card);color:var(--anatomy-text);font:13px/1.45 ui-
   <div data-text="airspace">
 <p><b>How to read the airspace.</b> The Toronto Terminal Control Area is Class C: every aircraft inside needs a clearance from the terminal controller. It is shaped like an upside-down wedding cake around the Toronto VOR. Close in, controlled airspace starts low; further out, it starts higher, so aircraft flying under it can get in and out of the small airports around the city.</p>
 <p>Step A: 1,700 to 2,000 ft within 12 NM. Step B: 2,000 to 2,500 ft out to 15 NM east and 20 NM west. Step C: 2,500 to 3,500 ft within 20 NM. Step D: 3,500 to 4,500 ft within 26 NM. Step E: 4,500 to 12,500 ft within 26 NM. Under 1,700 ft near the airport the Pearson control zone takes over, 7 NM around the field from the surface to 2,500 ft. The bites out of the steps are the Brampton and Buttonville airports and the Billy Bishop zone, kept outside Class C.</p>
-<p>Each sheet you see is a floor: the altitude where Class C begins at that distance. The walls are the outer edge of each step. Pick a step chip and it lights with the rest dimmed.</p><p><b>TCA steps.</b> The Toronto Terminal Control Area, Class C: an upside-down wedding cake. Each floor is where controlled airspace starts at that distance from the Toronto VOR; the walls are the outer edge of each step. Use Highlight a step above to see one at a time.</p><p><b>Control zones.</b> The Pearson control zone, 7 NM around the airport from the surface to 2,500 ft, and the Billy Bishop zone.</p><p><b>Altitude labels.</b> Floor and ceiling of each step, in feet above sea level.</p></div>
+<p>Each sheet you see is a floor: the altitude where Class C begins at that distance. The walls are the outer edge of each step. Tap step chips to light them with the rest dimmed; tap twice for only that one; tap again to clear.</p><p><b>TCA steps.</b> The Toronto Terminal Control Area, Class C: an upside-down wedding cake. Each floor is where controlled airspace starts at that distance from the Toronto VOR; the walls are the outer edge of each step. Use the Highlight steps chips to light one or more.</p><p><b>Control zones.</b> The Pearson control zone, 7 NM around the airport from the surface to 2,500 ft, and the Billy Bishop zone.</p><p><b>Altitude labels.</b> Floor and ceiling of each step, in feet above sea level.</p></div>
   <div data-text="heights"><p>1 NM on the board is 1 NM on the ground. The board surface is the airport, 569 ft above sea level, so a 1,700 ft floor sits 1,131 ft over the runways. Heights are stretched so the airspace steps and the climbs and descents read. True is 1:1. The default is 3.3 times. Everything with a height stretches together: airspace, aircraft, trails and stems.</p></div>
   <div data-text="traffic"><p><b>Arrivals.</b> Flights that end on a Pearson runway: 540 on this day.</p><p><b>Departures.</b> Flights that start on a Pearson runway: 574.</p><p><b>Overflights.</b> Flights that cross the area without landing at Pearson: 401.</p><p><b>Billy Bishop.</b> Arrivals and departures at Toronto City airport: 179.</p><p><b>On ground.</b> Taxiing aircraft, drawn small.</p></div>
   <div data-text="overlay"><p><b>Trails.</b> Where each aircraft has just been. Gaps in receiver coverage are left blank, not bridged.</p><p><b>Height stems.</b> A line from each aircraft straight down to its shadow on the board, so height reads. Not a flight path.</p><p><b>All-day tracks.</b> Every flight path of 1 October 2026 at once, by category. Shows the arrival downwinds, bases and finals and the departure fans.</p><p><b>Data block.</b> Callsign, type, altitude in hundreds of feet, ground speed and runway. Tap an aircraft; tap it twice to follow it.</p><p><b>All callsigns.</b> A tag on every airborne aircraft. Busy at peak times.</p></div>
@@ -192,13 +192,13 @@ const still = matchMedia("(prefers-reduced-motion: reduce)");
 const $ = (s) => document.querySelector(s);
 const ui = { play: $("[data-play]"), speed: $("[data-speed]"), time: $("[data-time]"), clock: $("[data-clock]"), panel: $("#panel"), menu: $("[data-menu]"), info: $("#info"), infoBody: $("#info .body"), infoTitle: $("#info h3") };
 // One state object drives everything. Chips carry data-chip="kind:value".
-const state = { layer: {}, scale: "3.3", view: "area", step: "all" };
+const state = { layer: {}, scale: "3.3", view: "area", hl: {} };
 document.querySelectorAll('[data-chip^="layer:"]').forEach((el) => { state.layer[el.dataset.chip.slice(6)] = el.hasAttribute("data-on"); });
 const on = (id) => !!state.layer[id];
 function paintChips() {
   document.querySelectorAll("[data-chip]").forEach((el) => {
     const [kind, value] = el.dataset.chip.split(":");
-    const active = kind === "layer" ? on(value) : state[kind] === value;
+    const active = kind === "layer" ? on(value) : kind === "hl" ? !!state.hl[value] : state[kind] === value;
     el.setAttribute("aria-pressed", active ? "true" : "false");
   });
 }
@@ -331,9 +331,10 @@ DATA.airspace.forEach((a, index) => {
   lab.position.set(far[0], ft(a.floor_ft) + 0.15, -far[1]); G.tcalabels.add(lab);
   steps.push({ index, isCZ, floorMat, wallMat, edgeMat, lab });
 });
-function highlightStep(which) {
+function highlightStep(set) {
+  const any = Object.values(set).some(Boolean);
   for (const s of steps) {
-    const pick = which === "all" ? null : s.index === Number(which);
+    const pick = any ? !!set[s.index] : null;
     s.floorMat.opacity = pick === null ? 0.1 : pick ? 0.3 : 0.03;
     s.wallMat.opacity = pick === null ? 0.035 : pick ? 0.14 : 0.01;
     s.floorMat.color.copy(pick ? T.lit : s.isCZ ? T.mid : T.hi);
@@ -427,7 +428,7 @@ function applyLayers() {
   for (const cat in allTracks) allTracks[cat].visible = on(CAT_LAYER[cat]);
   trails.visible = on("trails"); stems.visible = on("stems"); shadows.visible = on("stems");
   air.scale.y = (Number(state.scale) * TRUE_VEX) / VEX;
-  highlightStep(state.step);
+  highlightStep(state.hl);
   paintChips();
 }
 function update() {
@@ -555,13 +556,14 @@ document.querySelectorAll("[data-chip]").forEach((el) => el.addEventListener("cl
   const [kind, value] = el.dataset.chip.split(":");
   const now = performance.now(), dbl = lastTap.chip === el && now - lastTap.at < 420;
   lastTap = { chip: el, at: now };
-  if (kind === "layer") {
-    if (dbl) { for (const o of el.closest("[data-group]").querySelectorAll('[data-chip^="layer:"]')) state.layer[o.dataset.chip.slice(6)] = o === el; }
-    else state.layer[value] = !state.layer[value];
+  if (kind === "layer" || kind === "hl") {
+    const map = kind === "layer" ? state.layer : state.hl, prefix = kind + ":";
+    if (dbl) { for (const o of el.closest("[data-group]").querySelectorAll('[data-chip^="' + prefix + '"]')) map[o.dataset.chip.slice(prefix.length)] = o === el; }
+    else map[value] = !map[value];
+    if (kind === "hl" && map[value]) { state.layer.tca = true; state.layer.cz = true; }
   } else {
-    state[kind] = kind === "step" && state.step === value ? "all" : value;   // tapping the lit step again clears the highlight
+    state[kind] = value;
     if (kind === "view") placeCamera(VIEWS[value]);
-    if (kind === "step" && value !== "all") { state.layer.tca = true; state.layer.cz = true; }
   }
   applyLayers(); touch();
 }));
