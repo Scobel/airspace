@@ -351,8 +351,10 @@ function tick(now) {
       const s = row.s;
       v3.set(s.e, (s.ground ? 0.08 : ft(s.alt)) * air.scale.y, -s.n);
       followOffset.copy(camera.position).sub(controls.target);
-      if (followOffset.length() > 14) followOffset.setLength(followOffset.length() * 0.9);   // ease in to 14 NM
-      controls.target.copy(v3); camera.position.copy(v3).add(followOffset);
+      const k = 1 - Math.exp(-dt / 0.35);                                   // the orbit centre eases onto the aircraft
+      controls.target.lerp(v3, k);
+      if (followOffset.length() > 14) followOffset.setLength(followOffset.length() + (14 - followOffset.length()) * (1 - Math.exp(-dt / 1.2)));   // and the camera eases in to 14 NM
+      camera.position.copy(controls.target).add(followOffset);
     }
   }
   controls.autoRotate = touring && !still.matches && !tracking; controls.update();
@@ -424,7 +426,8 @@ document.querySelectorAll("[data-group] h2 span").forEach((h) => h.addEventListe
 }));
 document.querySelectorAll("[data-info]").forEach((b) => b.addEventListener("click", () => {
   const src = document.querySelector("#texts [data-text=\"" + b.dataset.info + "\"]");
-  ui.infoTitle.textContent = b.closest("[data-group]").querySelector("h2 span").textContent;
+  const group = b.closest("[data-group]");
+  ui.infoTitle.textContent = group ? group.querySelector("h2 span").textContent : "About this data";
   ui.infoBody.innerHTML = src.innerHTML; ui.info.classList.add("open");
 }));
 $("[data-info-close]").addEventListener("click", () => ui.info.classList.remove("open"));
