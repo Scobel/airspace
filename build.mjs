@@ -17,7 +17,7 @@ const LAYERS = [
   ["tca", "TCA steps", "The Toronto Terminal Control Area, Class C: an upside-down wedding cake. Each floor is where controlled airspace starts at that distance from the Toronto VOR; the walls are the outer edge of each step. Use the Highlight steps chips to light one or more.", true, "airspace"],
   ["cz", "Control zones", "The Pearson control zone, 7 NM around the airport from the surface to 2,500 ft, and the Billy Bishop zone.", true, "airspace"],
   ["tcalabels", "Altitude labels", "Floor and ceiling of each step, in feet above sea level.", true, "airspace"],
-  ["runways", "Runways", "The five Pearson runways and Billy Bishop 08/26 at true position, length and 200 ft width. 24L and 24R centrelines are 1,000 ft apart; 33L and 33R are 3,350 ft apart. Hexagons are the YYZ and YTP VOR-DMEs.", true, "map"],
+  ["runways", "Airport layout", "Pearson and Billy Bishop at true size from OpenStreetMap: runways 200 ft wide with centrelines, every taxiway at its width, aprons, terminals, hangars and the tower. Runway idents at the thresholds from OurAirports. 24L and 24R centrelines are 1,000 ft apart; 33L and 33R 3,350 ft. Small hexagons are the YYZ and YTP VOR-DMEs.", true, "map"],
   ["lakes", "Lakes", "Lake Ontario, Simcoe and Erie shorelines.", true, "map"],
   ["rings", "Range rings", "Rings every 10 NM from the Toronto VOR and bearing ticks every 5° around the 50 NM edge, true north up.", true, "map"],
   ["arrivals", "Arrivals", "Flights that end on a Pearson runway: " + stats.by_cat.arrival + " on this day.", true, "traffic"],
@@ -85,7 +85,7 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(30, 1, 0.5, 2000);
 const VIEWS = {
   area: { az: 50, el: 34, dist: 112, target: new THREE.Vector3(0, 2, 0) },
-  airport: { az: 50, el: 40, dist: 26, target: new THREE.Vector3(0.6, 0.8, -1.2) },
+  airport: { az: 35, el: 42, dist: 5.5, target: new THREE.Vector3(0.1, 0.05, -1.15) },
   final24: { az: 300, el: 18, dist: 40, target: new THREE.Vector3(10, 1.5, -6) },
   side: { az: 180, el: 6, dist: 110, target: new THREE.Vector3(0, 3, 0) },
   top: { az: 0, el: 89, dist: 120, target: new THREE.Vector3(0, 0, 0) },
@@ -196,20 +196,64 @@ function highlightStep(set) {
     s.lab.visible = pick === null || pick;
   }
 }
+// ---------------------------------------------------------------- airport layout (OpenStreetMap)
+// Flat ribbons for runways and taxiways at their true width, aprons as sheets, terminals and hangars as low blocks.
+function ribbon(pts, widthNm, y) {
+  const positions = [];
+  const half = widthNm / 2;
+  for (let i = 1; i < pts.length; i++) {
+    const [ax, ay] = pts[i - 1], [bx, by] = pts[i];
+    const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1;
+    const nx = -dy / L * half, ny = dx / L * half;
+    const a1 = [ax + nx, ay + ny], a2 = [ax - nx, ay - ny], b1 = [bx + nx, by + ny], b2 = [bx - nx, by - ny];
+    positions.push(a1[0], y, -a1[1], b1[0], y, -b1[1], a2[0], y, -a2[1], a2[0], y, -a2[1], b1[0], y, -b1[1], b2[0], y, -b2[1]);
+    if (i > 1) { // round the joint with a small fan
+      const [px, py] = pts[i - 2]; const pdx = ax - px, pdy = ay - py, pL = Math.hypot(pdx, pdy) || 1; const pnx = -pdy / pL * half, pny = pdx / pL * half;
+      positions.push(ax, y, -ay, ax + pnx, y, -(ay + pny), ax + nx, y, -(ay + ny), ax, y, -ay, ax - nx, y, -(ay - ny), ax - pnx, y, -(ay - pny));
+    }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3)); return g;
+}
+const AP = DATA.airport || { runways: [], taxiways: [], aprons: [], buildings: [], towers: [], helipads: [] };
+const M_NM = 1 / 1852;
+const apronMat = new THREE.MeshBasicMaterial({ color: isLight ? T.s3 : T.s1, side: THREE.DoubleSide });
+const taxiMat = new THREE.MeshBasicMaterial({ color: isLight ? T.lo : T.s3, side: THREE.DoubleSide });
+const rwyMat = new THREE.MeshBasicMaterial({ color: isLight ? T.mid : T.hi, side: THREE.DoubleSide });
+for (const a of AP.aprons) {
+  if (a.ring.length < 3) continue;
+  const geo = new THREE.ShapeGeometry(new THREE.Shape(a.ring.map(([e, n]) => new THREE.Vector2(e, n))), 1);
+  const m = new THREE.Mesh(geo, apronMat); m.rotation.x = -Math.PI / 2; m.position.y = 0.035; G.runways.add(m);
+  G.runways.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(a.ring.map(([e, n]) => toV(e, n, 0.045))), LINE.faint));
+}
+for (const t of AP.taxiways) G.runways.add(new THREE.Mesh(ribbon(t.pts, t.width_m * M_NM, 0.04), taxiMat));
+for (const r of AP.runways) {
+  G.runways.add(new THREE.Mesh(ribbon(r.pts, r.width_m * M_NM, 0.05), rwyMat));
+  G.runways.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(r.pts.map(([e, n]) => toV(e, n, 0.07))), LINE.lo));   // centreline
+}
+for (const b of AP.buildings) {
+  if (b.ring.length < 3) continue;
+  const geo = new THREE.ExtrudeGeometry(new THREE.Shape(b.ring.map(([e, n]) => new THREE.Vector2(e, n))), { depth: b.kind === "terminal" ? 0.012 : 0.008, bevelEnabled: false, curveSegments: 1 });
+  const g = solid(geo, "mid", "lo", 30); g.rotation.x = -Math.PI / 2; g.position.y = 0.04; G.runways.add(g);
+}
+for (const h of AP.helipads) {
+  const geo = new THREE.ShapeGeometry(new THREE.Shape(h.ring.map(([e, n]) => new THREE.Vector2(e, n))), 1);
+  const m = new THREE.Mesh(geo, rwyMat); m.rotation.x = -Math.PI / 2; m.position.y = 0.05; G.runways.add(m);
+}
+for (const t of AP.towers) { const g = solid(new THREE.CylinderGeometry(0.012, 0.016, 0.05, 12), "hi", "lo", 40); g.position.copy(toV(t.pos[0], t.pos[1], 0.065)); G.runways.add(g); }
+// Runway idents at the thresholds (OurAirports), and the VOR-DMEs as small hexagonal pucks beside the field.
 for (const r of DATA.runways) {
-  const [e1, n1] = r.le.pos, [e2, n2] = r.he.pos;
-  const len = Math.hypot(e2 - e1, n2 - n1), ang = Math.atan2(e2 - e1, n2 - n1);
-  // True width: 200 ft is 0.033 NM. A centreline on top keeps it readable from far out.
-  const wNm = (r.width_ft || 200) / 6076;
-  const g = solid(new THREE.BoxGeometry(wNm, 0.05, len), r.airport === "CYYZ" ? "hi" : "mid", "hi");
-  g.position.copy(toV((e1 + e2) / 2, (n1 + n2) / 2, 0.04)); g.rotation.y = -ang; G.runways.add(g);
-  G.runways.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([toV(e1, n1, 0.07), toV(e2, n2, 0.07)]), LINE.hi));
+  if (!AP.runways.length) {   // fallback when the OpenStreetMap layout is missing
+    const [e1, n1] = r.le.pos, [e2, n2] = r.he.pos;
+    const len = Math.hypot(e2 - e1, n2 - n1), ang = Math.atan2(e2 - e1, n2 - n1);
+    const g = solid(new THREE.BoxGeometry((r.width_ft || 200) / 6076, 0.05, len), "hi", "hi");
+    g.position.copy(toV((e1 + e2) / 2, (n1 + n2) / 2, 0.04)); g.rotation.y = -ang; G.runways.add(g);
+  }
   for (const end of [r.le, r.he]) { const t = tag(end.id, "rwy"); t.position.copy(toV(end.pos[0], end.pos[1], 0.25)); G.runways.add(t); }
 }
 for (const nav of DATA.navaids) {
   if (nav.type !== "VOR-DME") continue;
-  const g = solid(new THREE.CylinderGeometry(0.35, 0.35, 0.12, 6), "mid", "mid", 40); g.position.copy(toV(nav.pos[0], nav.pos[1], 0.06)); G.runways.add(g);
-  const t = tag(nav.id + " VOR", "rwy"); t.position.copy(toV(nav.pos[0], nav.pos[1], 0.4)); G.runways.add(t);
+  const g = solid(new THREE.CylinderGeometry(0.06, 0.06, 0.03, 6), "mid", "mid", 40); g.position.copy(toV(nav.pos[0], nav.pos[1], 0.055)); G.runways.add(g);
+  const t = tag(nav.id, "rwy"); t.position.copy(toV(nav.pos[0], nav.pos[1], 0.14)); G.runways.add(t);
 }
 const nearTags = []; G.runways.traverse((o) => { if (o.isCSS2DObject) nearTags.push(o); });
 
@@ -286,7 +330,9 @@ function applyLayers() {
   highlightStep(state.hl);
   paintChips();
 }
+let glyphK = 1;   // glyphs shrink as the camera comes in, so they never dwarf the airport
 function update() {
+  glyphK = Math.min(1, Math.max(0.12, camera.position.distanceTo(controls.target) / 40));
   active.length = 0;
   let n = 0, tcount = 0;
   const tp = trailGeo.attributes.position.array, tc = trailGeo.attributes.color.array, sp = stemGeo.attributes.position.array;
@@ -298,11 +344,11 @@ function update() {
     active.push({ f, s, idx: n });
     const y = s.ground ? 0.08 : ft(s.alt);
     v3.set(s.e, y, -s.n); q.setFromAxisAngle(up, Math.PI - (s.hdg * Math.PI) / 180);
-    const size = s.ground ? 0.3 : 0.52; sc.set(size, size / air.scale.y, size);
+    const size = (s.ground ? 0.3 : 0.52) * glyphK; sc.set(size, size / air.scale.y, size);
     m4.compose(v3, q, sc); glyphs.setMatrixAt(n, m4);
     const isSel = selected === f, isHov = hovered === f;
     color.copy(isSel ? T.lit : isHov ? T.hi : CAT_COLOR[f.cat] || T.lo); glyphs.setColorAt(n, color);
-    m4.compose(v3.set(s.e, 0.04, -s.n), q.identity(), sc.set(1, 1, 1)); shadows.setMatrixAt(n, m4);
+    m4.compose(v3.set(s.e, 0.04, -s.n), q.identity(), sc.set(glyphK, 1, glyphK)); shadows.setMatrixAt(n, m4);
     sp[n * 6] = s.e; sp[n * 6 + 1] = 0.04; sp[n * 6 + 2] = -s.n; sp[n * 6 + 3] = s.e; sp[n * 6 + 4] = y; sp[n * 6 + 5] = -s.n;
     const c = isSel ? T.lit : CAT_COLOR[f.cat] || T.lo;
     let prev = null;
@@ -468,7 +514,7 @@ const about = `
 <p>The board is 100 NM across, centred on the Toronto VOR. The board surface is the airport elevation, 569 ft above sea level, and every height is drawn from there; the labels keep the published above-sea-level numbers. Heights are drawn at 3.3 times true scale by default so the steps read; the Heights chips go from true scale to 15 times.</p>
 <p>The aircraft are real. Every one is an ADS-B broadcast received on 1 October 2026 by the ADS-B Exchange receiver network, published as a free sample day: ${stats.flights} flights within 55 NM below 20,000 ft. Position, altitude, speed, track, callsign and type come from the aircraft. Arrival or departure, and the runway, are inferred from where each track starts and ends. Altitude is pressure altitude, not corrected to the local altimeter. Where no receiver heard an aircraft for more than two minutes it is left out rather than drawn as a straight line. The airport's ADS-B test beacon (registration TWR) is removed.</p>
 <p>On this day: ${stats.by_cat.arrival} Pearson arrivals (${Object.entries(stats.arrivals_by_rwy).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([r, n]) => r + " " + n).join(", ")}), ${stats.by_cat.departure} departures (${Object.entries(stats.departures_by_rwy).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([r, n]) => r + " " + n).join(", ")}), ${stats.by_cat.overflight} overflights.</p>
-<p>Airspace: NAV CANADA Designated Airspace Handbook, issue effective 3 September 2026, traced point by point. Runways and VORs: OurAirports. Shorelines: Natural Earth. Not drawn: STAR and SID procedures and terminal sector boundaries; the Canada Air Pilot is a paid publication and sectors are not public.</p>
+<p>Airspace: NAV CANADA Designated Airspace Handbook, issue effective 3 September 2026, traced point by point. Airport layout: OpenStreetMap contributors (ODbL). Runway thresholds and VORs: OurAirports. Shorelines: Natural Earth. Not drawn: STAR and SID procedures and terminal sector boundaries; the Canada Air Pilot is a paid publication and sectors are not public.</p>
 <p>Tap a plane for its data block. Tap it twice to follow it: the camera stays on it until it lands or leaves, or until you tap empty board or press Esc. Camera: drag to orbit, scroll or pinch to zoom down to 1.5 NM, right-drag, shift-drag or two fingers to move the orbit centre (up and down as well), Q and E to lower or raise it. The camera can go down to the ground and look up. Keys: space play or pause, ← → one minute (shift: ten), ↑ ↓ speed, 1 to 6 views, L the menu, Esc close.</p>`;
 const chip = (kind, value, label, onDefault = false, title = "") => `<button type="button" class="chip" data-chip="${kind}:${value}"${onDefault ? " data-on" : ""} aria-pressed="${onDefault}"${title ? ` title="${title.replace(/"/g, "&quot;")}"` : ""}>${label}</button>`;
 const groupBlock = (id, title, chips, info) => `<section data-group="${id}"><h2><span title="Tap: all on or off">${title}</span>${info ? `<button type="button" class="info" data-info="${id}" aria-label="About ${title}">i</button>` : ""}</h2><div class="chips">${chips}</div></section>`;

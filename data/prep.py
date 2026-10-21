@@ -222,7 +222,41 @@ for f in flights:
         stats["departures_by_rwy"][f["rwy"] or "?"] = stats["departures_by_rwy"].get(f["rwy"] or "?", 0) + 1
         stats["by_hour"][min(23, f["t0"] // 3600)][1] += 1
 
-data = {"origin": {"lat": LAT0, "lon": LON0, "name": "Toronto VOR (TCA centre)"}, "board_radius_nm": R_BOARD, "day": "2026-10-01",
+# ---- airport layout from OpenStreetMap (Overpass export osm_airport.json, ODbL)
+airport = {"runways": [], "taxiways": [], "aprons": [], "buildings": [], "towers": [], "helipads": []}
+if os.path.exists("osm_airport.json"):
+    osm = json.load(open("osm_airport.json"))
+    def geom_nm(g): return [nm(q["lat"], q["lon"]) for q in g]
+    for e in osm.get("elements", []):
+        t = e.get("tags", {}); kind = t.get("aeroway") or t.get("building")
+        if e["type"] == "way":
+            g = e.get("geometry", [])
+            if len(g) < 2: continue
+            pts = geom_nm(g)
+            closed = g[0]["lat"] == g[-1]["lat"] and g[0]["lon"] == g[-1]["lon"]
+            if kind == "runway" and t.get("width"):
+                airport["runways"].append({"ref": t.get("ref", ""), "pts": pts, "width_m": float(t["width"])})
+            elif kind == "taxiway" and not closed:
+                try: w = float(str(t.get("width", "23")).split()[0])
+                except ValueError: w = 23.0
+                airport["taxiways"].append({"ref": t.get("ref", ""), "pts": pts, "width_m": w})
+            elif kind == "apron" and closed:
+                airport["aprons"].append({"ref": t.get("ref", t.get("name", "")), "ring": pts[:-1]})
+            elif kind in ("terminal", "hangar") and closed:
+                airport["buildings"].append({"kind": kind, "name": t.get("name", ""), "ring": pts[:-1]})
+            elif kind == "tower":
+                c = pts[0] if not closed else (sum(q[0] for q in pts[:-1]) / (len(pts) - 1), sum(q[1] for q in pts[:-1]) / (len(pts) - 1))
+                airport["towers"].append({"pos": c})
+            elif kind == "helipad" and closed:
+                airport["helipads"].append({"ring": pts[:-1]})
+        elif e["type"] == "relation" and kind in ("terminal", "apron"):
+            for m in e.get("members", []):
+                if m.get("role") == "outer" and m.get("geometry"):
+                    g = m["geometry"]; pts = geom_nm(g)
+                    (airport["buildings"] if kind == "terminal" else airport["aprons"]).append({"kind": kind, "name": t.get("name", ""), "ring": pts})
+    print("airport layout:", {k: len(v) for k, v in airport.items()})
+
+data = {"airport": airport, "origin": {"lat": LAT0, "lon": LON0, "name": "Toronto VOR (TCA centre)"}, "board_radius_nm": R_BOARD, "day": "2026-10-01",
         "runways": runways, "navaids": navaids, "airspace": airspace, "fixes": {k: v["pos"] for k, v in fixes.items()}, "fix_summary": fix_summary,
         "lakes": lakes, "flights": flights, "stats": stats}
 json.dump(data, open("data.json", "w"), separators=(",", ":"))
