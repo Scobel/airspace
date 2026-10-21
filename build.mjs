@@ -17,7 +17,7 @@ const LAYERS = [
   ["tca", "TCA steps", "The Toronto Terminal Control Area, Class C: an upside-down wedding cake. Each floor is where controlled airspace starts at that distance from the Toronto VOR; the walls are the outer edge of each step. Use the Highlight steps chips to light one or more.", true, "airspace"],
   ["cz", "Control zones", "The Pearson control zone, 7 NM around the airport from the surface to 2,500 ft, and the Billy Bishop zone.", true, "airspace"],
   ["tcalabels", "Altitude labels", "Floor and ceiling of each step, in feet above sea level.", true, "airspace"],
-  ["runways", "Runways", "The five Pearson runways and Billy Bishop 08/26 at true position, widened to read. Hexagons are the YYZ and YTP VOR-DMEs.", true, "map"],
+  ["runways", "Runways", "The five Pearson runways and Billy Bishop 08/26 at true position, length and 200 ft width. 24L and 24R centrelines are 1,000 ft apart; 33L and 33R are 3,350 ft apart. Hexagons are the YYZ and YTP VOR-DMEs.", true, "map"],
   ["lakes", "Lakes", "Lake Ontario, Simcoe and Erie shorelines.", true, "map"],
   ["rings", "Range rings", "Rings every 10 NM from the Toronto VOR and bearing ticks every 5° around the 50 NM edge, true north up.", true, "map"],
   ["arrivals", "Arrivals", "Flights that end on a Pearson runway: " + stats.by_cat.arrival + " on this day.", true, "traffic"],
@@ -199,8 +199,11 @@ function highlightStep(set) {
 for (const r of DATA.runways) {
   const [e1, n1] = r.le.pos, [e2, n2] = r.he.pos;
   const len = Math.hypot(e2 - e1, n2 - n1), ang = Math.atan2(e2 - e1, n2 - n1);
-  const g = solid(new THREE.BoxGeometry(r.airport === "CYYZ" ? 0.18 : 0.12, 0.08, len), r.airport === "CYYZ" ? "hi" : "mid", "hi");
-  g.position.copy(toV((e1 + e2) / 2, (n1 + n2) / 2, 0.06)); g.rotation.y = -ang; G.runways.add(g);
+  // True width: 200 ft is 0.033 NM. A centreline on top keeps it readable from far out.
+  const wNm = (r.width_ft || 200) / 6076;
+  const g = solid(new THREE.BoxGeometry(wNm, 0.05, len), r.airport === "CYYZ" ? "hi" : "mid", "hi");
+  g.position.copy(toV((e1 + e2) / 2, (n1 + n2) / 2, 0.04)); g.rotation.y = -ang; G.runways.add(g);
+  G.runways.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([toV(e1, n1, 0.07), toV(e2, n2, 0.07)]), LINE.hi));
   for (const end of [r.le, r.he]) { const t = tag(end.id, "rwy"); t.position.copy(toV(end.pos[0], end.pos[1], 0.25)); G.runways.add(t); }
 }
 for (const nav of DATA.navaids) {
