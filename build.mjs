@@ -28,7 +28,7 @@ const LAYERS = [
   ["trails", "Trails", "Where each aircraft has just been. Gaps in receiver coverage are left blank, not bridged.", true, "overlay"],
   ["stems", "Height stems", "A line from each aircraft straight down to its shadow on the board, so height reads. Not a flight path.", true, "overlay"],
   ["alltracks", "All-day tracks", "Every flight path of 1 October 2026 at once, by category. Shows the arrival downwinds, bases and finals and the departure fans.", false, "overlay"],
-  ["datablocks", "Data block", "Callsign, type, altitude in hundreds of feet, ground speed and runway. Tap or click an aircraft.", true, "overlay"],
+  ["datablocks", "Data block", "Callsign, type, altitude in hundreds of feet, ground speed and runway. Tap an aircraft; tap it twice to follow it.", true, "overlay"],
   ["alllabels", "All callsigns", "A tag on every airborne aircraft. Busy at peak times.", false, "overlay"],
 ];
 const STEPS = DATA.airspace.map((a, i) => ({ i, name: a.name, floor: a.floor_ft, ceiling: a.ceiling_ft }));
@@ -263,7 +263,8 @@ function sample(f, t) {
 }
 
 // ---------------------------------------------------------------- replay
-let time = 15 * 3600, playing = !still.matches, speed = 5, selected = null, hovered = null;
+let time = 15 * 3600, playing = !still.matches, speed = 5, selected = null, hovered = null, tracking = null;
+const followOffset = new THREE.Vector3();
 let touring = !still.matches, idleTimer = 0, frame = 0, last = 0;
 const fmt = (s) => { s = ((s % 86400) + 86400) % 86400; return String(Math.floor(s / 3600)).padStart(2, "0") + ":" + String(Math.floor((s % 3600) / 60)).padStart(2, "0") + "Z"; };
 const active = [];
@@ -333,9 +334,9 @@ function update() {
     if (labelEl.innerHTML !== txt) labelEl.innerHTML = txt;
     label.visible = true;
   } else label.visible = false;
-  window.__yyz = { active, glyphs };
+  window.__yyz = { active, glyphs, screen: (() => { const a = active.find((x) => !x.s.ground && x.f.cat === 'arrival'); if (!a) return null; const box = renderer.domElement.getBoundingClientRect(); v3.set(a.s.e, ft(a.s.alt) * air.scale.y, -a.s.n).project(camera); return { cs: a.f.cs, x: box.left + (v3.x + 1) / 2 * box.width, y: box.top + (1 - v3.y) / 2 * box.height }; })() };
   const airborne = active.filter((a) => !a.s.ground).length;
-  const text = fmt(time) + " · " + airborne + " airborne · arr " + runwaysInUse(time, "arrival") + " · dep " + runwaysInUse(time, "departure");
+  const text = (tracking ? "following " + tracking.cs + " · " : "") + fmt(time) + " · " + airborne + " airborne · arr " + runwaysInUse(time, "arrival") + " · dep " + runwaysInUse(time, "departure");
   if (readout.textContent !== text) readout.textContent = text;
   ui.clock.textContent = fmt(time);
   if (document.activeElement !== ui.time) ui.time.value = String(Math.round(time));
@@ -343,7 +344,18 @@ function update() {
 function tick(now) {
   const dt = last ? Math.min((now - last) / 1000, 0.1) : 1 / 60; last = now;
   if (playing) { time += dt * speed; if (time >= 86400) time -= 86400; }
-  controls.autoRotate = touring && !still.matches; controls.update();
+  if (tracking) {
+    const row = active.find((a) => a.f === tracking);
+    if (!row) tracking = null;
+    else {
+      const s = row.s;
+      v3.set(s.e, (s.ground ? 0.08 : ft(s.alt)) * air.scale.y, -s.n);
+      followOffset.copy(camera.position).sub(controls.target);
+      if (followOffset.length() > 14) followOffset.setLength(followOffset.length() * 0.9);   // ease in to 14 NM
+      controls.target.copy(v3); camera.position.copy(v3).add(followOffset);
+    }
+  }
+  controls.autoRotate = touring && !still.matches && !tracking; controls.update();
   if (camera.position.y < 0.06) { camera.position.y = 0.06; camera.lookAt(controls.target); }   // the ground is the floor
   const close = camera.position.distanceTo(controls.target) < 48;
   for (const t of nearTags) t.visible = close;
@@ -372,7 +384,17 @@ function pickAt(ev) {
 renderer.domElement.addEventListener("pointermove", (ev) => { if (ev.buttons || ev.pointerType !== "mouse") return; hovered = pickAt(ev); renderer.domElement.style.cursor = hovered ? "pointer" : ""; });
 let downAt = [0, 0];
 renderer.domElement.addEventListener("pointerdown", (ev) => { downAt = [ev.clientX, ev.clientY]; });
-renderer.domElement.addEventListener("pointerup", (ev) => { if (Math.hypot(ev.clientX - downAt[0], ev.clientY - downAt[1]) > 6) return; const f = pickAt(ev); selected = f === selected ? null : f; touch(); });
+let lastPlaneTap = { f: null, at: 0 };
+renderer.domElement.addEventListener("pointerup", (ev) => {
+  if (Math.hypot(ev.clientX - downAt[0], ev.clientY - downAt[1]) > 6) return;
+  const f = pickAt(ev), now = performance.now();
+  if (f && lastPlaneTap.f === f && now - lastPlaneTap.at < 450) { tracking = f; selected = f; }      // double tap: follow it
+  else if (!f) { tracking = null; selected = null; }
+  else selected = f === selected ? null : f;
+  if (tracking && selected !== tracking) tracking = null;
+  lastPlaneTap = { f, at: now };
+  touch();
+});
 ui.play.addEventListener("click", () => { playing = !playing; ui.play.textContent = playing ? "❚❚" : "▶"; touch(); });
 ui.speed.addEventListener("change", () => { speed = Number(ui.speed.value); touch(); });
 ui.time.addEventListener("input", () => { time = Number(ui.time.value); touch(); });
@@ -419,7 +441,7 @@ addEventListener("keydown", (ev) => {
   else if (ev.key === "q" || ev.key === "Q") { controls.target.y = Math.max(0, controls.target.y - 0.4); controls.update(); }
   else if (ev.key === "e" || ev.key === "E") { controls.target.y += 0.4; controls.update(); }
   else if (ev.key === "l" || ev.key === "L") ui.panel.classList.toggle("open");
-  else if (ev.key === "Escape") { selected = null; ui.info.classList.remove("open"); }
+  else if (ev.key === "Escape") { selected = null; tracking = null; ui.info.classList.remove("open"); }
   else return;
   ev.preventDefault(); touch();
 });
@@ -439,7 +461,7 @@ const about = `
 <p>The aircraft are real. Every one is an ADS-B broadcast received on 1 October 2026 by the ADS-B Exchange receiver network, published as a free sample day: ${stats.flights} flights within 55 NM below 20,000 ft. Position, altitude, speed, track, callsign and type come from the aircraft. Arrival or departure, and the runway, are inferred from where each track starts and ends. Altitude is pressure altitude, not corrected to the local altimeter. Where no receiver heard an aircraft for more than two minutes it is left out rather than drawn as a straight line. The airport's ADS-B test beacon (registration TWR) is removed.</p>
 <p>On this day: ${stats.by_cat.arrival} Pearson arrivals (${Object.entries(stats.arrivals_by_rwy).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([r, n]) => r + " " + n).join(", ")}), ${stats.by_cat.departure} departures (${Object.entries(stats.departures_by_rwy).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([r, n]) => r + " " + n).join(", ")}), ${stats.by_cat.overflight} overflights.</p>
 <p>Airspace: NAV CANADA Designated Airspace Handbook, issue effective 3 September 2026, traced point by point. Runways and VORs: OurAirports. Shorelines: Natural Earth. Not drawn: STAR and SID procedures and terminal sector boundaries; the Canada Air Pilot is a paid publication and sectors are not public.</p>
-<p>Camera: drag to orbit, scroll or pinch to zoom down to 1.5 NM, right-drag, shift-drag or two fingers to move the orbit centre (up and down as well), Q and E to lower or raise it. The camera can go down to the ground and look up. Keys: space play or pause, ← → one minute (shift: ten), ↑ ↓ speed, 1 to 6 views, L the menu, Esc close.</p>`;
+<p>Tap a plane for its data block. Tap it twice to follow it: the camera stays on it until it lands or leaves, or until you tap empty board or press Esc. Camera: drag to orbit, scroll or pinch to zoom down to 1.5 NM, right-drag, shift-drag or two fingers to move the orbit centre (up and down as well), Q and E to lower or raise it. The camera can go down to the ground and look up. Keys: space play or pause, ← → one minute (shift: ten), ↑ ↓ speed, 1 to 6 views, L the menu, Esc close.</p>`;
 const chip = (kind, value, label, onDefault = false, title = "") => `<button type="button" class="chip" data-chip="${kind}:${value}"${onDefault ? " data-on" : ""} aria-pressed="${onDefault}"${title ? ` title="${title.replace(/"/g, "&quot;")}"` : ""}>${label}</button>`;
 const groupBlock = (id, title, chips, info) => `<section data-group="${id}"><h2><span title="Tap: all on or off">${title}</span>${info ? `<button type="button" class="info" data-info="${id}" aria-label="About ${title}">i</button>` : ""}</h2><div class="chips">${chips}</div></section>`;
 const layerChips = (group) => LAYERS.filter((l) => l[4] === group).map(([id, label, note, def]) => chip("layer", id, label, def, note)).join("");
