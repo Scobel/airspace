@@ -1,0 +1,10 @@
+data/traces/
+data/*.pdf
+data/*.gz
+data/dah.txt
+data/cac.txt
+data/hexes.json
+data/harvest.log
+shots/
+node_modules/
+.vercel/
