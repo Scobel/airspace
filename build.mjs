@@ -411,7 +411,7 @@ document.querySelectorAll("[data-chip]").forEach((el) => el.addEventListener("cl
     if (dbl) { for (const o of el.closest("[data-group]").querySelectorAll('[data-chip^="layer:"]')) state.layer[o.dataset.chip.slice(6)] = o === el; }
     else state.layer[value] = !state.layer[value];
   } else {
-    state[kind] = value;
+    state[kind] = kind === "step" && state.step === value ? "all" : value;   // tapping the lit step again clears the highlight
     if (kind === "view") placeCamera(VIEWS[value]);
     if (kind === "step" && value !== "all") { state.layer.tca = true; state.layer.cz = true; }
   }
@@ -468,11 +468,11 @@ const about = `
 const chip = (kind, value, label, onDefault = false, title = "") => `<button type="button" class="chip" data-chip="${kind}:${value}"${onDefault ? " data-on" : ""} aria-pressed="${onDefault}"${title ? ` title="${title.replace(/"/g, "&quot;")}"` : ""}>${label}</button>`;
 const groupBlock = (id, title, chips, info) => `<section data-group="${id}"><h2><span title="Tap: all on or off">${title}</span>${info ? `<button type="button" class="info" data-info="${id}" aria-label="About ${title}">i</button>` : ""}</h2><div class="chips">${chips}</div></section>`;
 const layerChips = (group) => LAYERS.filter((l) => l[4] === group).map(([id, label, note, def]) => chip("layer", id, label, def, note)).join("");
-const stepChips = chip("step", "all", "All") + STEPS.map((st) => chip("step", String(st.i), st.name.includes("CZ") ? (st.name.includes("Pearson") ? "Pearson CZ" : "Bishop CZ") : st.name.slice(-1).toUpperCase(), false, (st.floor ? st.floor.toLocaleString() : "surface") + " to " + st.ceiling.toLocaleString() + " ft")).join("");
+const stepChips = chip("step", "all", "None", true, "No step highlighted") + STEPS.map((st) => chip("step", String(st.i), st.name.includes("CZ") ? (st.name.includes("Pearson") ? "Pearson CZ" : "Bishop CZ") : st.name.slice(-1).toUpperCase(), false, (st.floor ? st.floor.toLocaleString() : "surface") + " to " + st.ceiling.toLocaleString() + " ft")).join("");
 const panelHtml = `
 <nav id="panel" aria-label="Controls">
   <p class="howto">Tap a chip: on or off. Tap it twice: only that one. Tap a group name: all or none.</p>
-  ${groupBlock("airspace", "Airspace", layerChips("airspace") + `<div class="sub">Highlight step</div>` + stepChips, true)}
+  ${groupBlock("airspace", "Airspace", layerChips("airspace") + `<div class="sub">Highlight one step</div>` + stepChips, true)}
   ${groupBlock("heights", "Heights", ["1", "3.3", "6", "10", "15"].map((v) => chip("scale", v, v === "1" ? "True" : v + "×", v === "3.3")).join(""), true)}
   ${groupBlock("traffic", "Traffic", layerChips("traffic"), true)}
   ${groupBlock("overlay", "Overlays", layerChips("overlay"), true)}
