@@ -83,10 +83,12 @@ labelRenderer.domElement.className = "labels";
 stage.appendChild(labelRenderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(30, 1, 0.5, 2000);
+const TH24R = { x: 1.49, y: 1.26 };   // 24R threshold, east and north of the Toronto VOR in NM (OurAirports)
 const VIEWS = {
   area: { az: 50, el: 34, dist: 112, target: new THREE.Vector3(0, 2, 0) },
   airport: { az: 35, el: 42, dist: 5.5, target: new THREE.Vector3(0.1, 0.05, -1.15) },
-  final24: { az: 300, el: 18, dist: 40, target: new THREE.Vector3(10, 1.5, -6) },
+  runway: { az: 315, el: 5, dist: 1.1, target: new THREE.Vector3(TH24R.x + 0.37, 0.05, -(TH24R.y + 0.34)) },   // on 24R looking up the approach
+  final24: { az: 318, el: 11, dist: 7, target: new THREE.Vector3(TH24R.x + 2.2, 0.5, -(TH24R.y + 2.05)) },   // 3 NM final to 24R, seen from behind the threshold
   side: { az: 180, el: 6, dist: 110, target: new THREE.Vector3(0, 3, 0) },
   top: { az: 0, el: 89, dist: 120, target: new THREE.Vector3(0, 0, 0) },
   tower: { az: 128, el: 2.5, dist: 7, target: new THREE.Vector3(1.6, 0.35, -2.4) },
@@ -491,7 +493,7 @@ addEventListener("keydown", (ev) => {
   else if (ev.key === "ArrowLeft") time = (time - step + 86400) % 86400;
   else if (ev.key === "ArrowUp") { speed = Math.min(600, speed * 2); ui.speed.value = String(speed); }
   else if (ev.key === "ArrowDown") { speed = Math.max(1, speed / 2); ui.speed.value = String(speed); }
-  else if ("123456".includes(ev.key) && ev.key) { state.view = ["area", "airport", "final24", "side", "top", "tower"][Number(ev.key) - 1]; placeCamera(VIEWS[state.view]); applyLayers(); }
+  else if ("1234567".includes(ev.key) && ev.key) { state.view = ["area", "airport", "runway", "final24", "side", "top", "tower"][Number(ev.key) - 1]; placeCamera(VIEWS[state.view]); applyLayers(); }
   else if (ev.key === "q" || ev.key === "Q") { controls.target.y = Math.max(0, controls.target.y - 0.4); controls.update(); }
   else if (ev.key === "e" || ev.key === "E") { controls.target.y += 0.4; controls.update(); }
   else if (ev.key === "l" || ev.key === "L") ui.panel.classList.toggle("open");
@@ -515,7 +517,7 @@ const about = `
 <p>The aircraft are real. Every one is an ADS-B broadcast received on 1 October 2026 by the ADS-B Exchange receiver network, published as a free sample day: ${stats.flights} flights within 55 NM below 20,000 ft. Position, altitude, speed, track, callsign and type come from the aircraft. Arrival or departure, and the runway, are inferred from where each track starts and ends. Altitude is pressure altitude, not corrected to the local altimeter. Where no receiver heard an aircraft for more than two minutes it is left out rather than drawn as a straight line. The airport's ADS-B test beacon (registration TWR) is removed.</p>
 <p>On this day: ${stats.by_cat.arrival} Pearson arrivals (${Object.entries(stats.arrivals_by_rwy).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([r, n]) => r + " " + n).join(", ")}), ${stats.by_cat.departure} departures (${Object.entries(stats.departures_by_rwy).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([r, n]) => r + " " + n).join(", ")}), ${stats.by_cat.overflight} overflights.</p>
 <p>Airspace: NAV CANADA Designated Airspace Handbook, issue effective 3 September 2026, traced point by point. Airport layout: OpenStreetMap contributors (ODbL). Runway thresholds and VORs: OurAirports. Shorelines: Natural Earth. Not drawn: STAR and SID procedures and terminal sector boundaries; the Canada Air Pilot is a paid publication and sectors are not public.</p>
-<p>Tap a plane for its data block. Tap it twice to follow it: the camera stays on it until it lands or leaves, or until you tap empty board or press Esc. Camera: drag to orbit, scroll or pinch to zoom down to 1.5 NM, right-drag, shift-drag or two fingers to move the orbit centre (up and down as well), Q and E to lower or raise it. The camera can go down to the ground and look up. Keys: space play or pause, ← → one minute (shift: ten), ↑ ↓ speed, 1 to 6 views, L the menu, Esc close.</p>`;
+<p>Tap a plane for its data block. Tap it twice to follow it: the camera stays on it until it lands or leaves, or until you tap empty board or press Esc. Camera: drag to orbit, scroll or pinch to zoom down to 1.5 NM, right-drag, shift-drag or two fingers to move the orbit centre (up and down as well), Q and E to lower or raise it. The camera can go down to the ground and look up. Keys: space play or pause, ← → one minute (shift: ten), ↑ ↓ speed, 1 to 7 views, L the menu, Esc close.</p>`;
 const chip = (kind, value, label, onDefault = false, title = "") => `<button type="button" class="chip" data-chip="${kind}:${value}"${onDefault ? " data-on" : ""} aria-pressed="${onDefault}"${title ? ` title="${title.replace(/"/g, "&quot;")}"` : ""}>${label}</button>`;
 const groupBlock = (id, title, chips, info) => `<section data-group="${id}"><h2><span title="Tap: all on or off">${title}</span>${info ? `<button type="button" class="info" data-info="${id}" aria-label="About ${title}">i</button>` : ""}</h2><div class="chips">${chips}</div></section>`;
 const layerChips = (group) => LAYERS.filter((l) => l[4] === group).map(([id, label, note, def]) => chip("layer", id, label, def, note)).join("");
@@ -528,7 +530,7 @@ const panelHtml = `
   ${groupBlock("traffic", "Traffic", layerChips("traffic"), true)}
   ${groupBlock("overlay", "Overlays", layerChips("overlay"), true)}
   ${groupBlock("map", "Map", layerChips("map"), true)}
-  ${groupBlock("view", "View", [["area", "Whole area"], ["airport", "Airport"], ["final24", "Final 24R"], ["side", "From south"], ["top", "Top down"], ["tower", "Ground level"]].map(([v, l], i) => chip("view", v, l + " " + (i + 1), v === "area")).join(""), false)}
+  ${groupBlock("view", "View", [["area", "Whole area"], ["airport", "Airport"], ["runway", "Runway 24R"], ["final24", "Final 24R"], ["side", "From south"], ["top", "Top down"], ["tower", "Ground level"]].map(([v, l], i) => chip("view", v, l + " " + (i + 1), v === "area")).join(""), false)}
   <button type="button" class="chip about" data-info="about">About this data</button>
 </nav>`;
 const LAYER_NOTES = (group) => LAYERS.filter((l) => l[4] === group).map(([id, label, note]) => `<p><b>${label}.</b> ${note}</p>`).join("");
