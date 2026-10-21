@@ -17,7 +17,7 @@ const LAYERS = [
   ["tca", "TCA steps", "The Toronto Terminal Control Area, Class C: an upside-down wedding cake. Each floor is where controlled airspace starts at that distance from the Toronto VOR; the walls are the outer edge of each step. Use the Highlight steps chips to light one or more.", true, "airspace"],
   ["cz", "Control zones", "The Pearson control zone, 7 NM around the airport from the surface to 2,500 ft, and the Billy Bishop zone.", true, "airspace"],
   ["tcalabels", "Altitude labels", "Floor and ceiling of each step, in feet above sea level.", true, "airspace"],
-  ["runways", "Airport layout", "Pearson and Billy Bishop at true size from OpenStreetMap: runways 200 ft wide with centrelines, every taxiway at its width, aprons, terminals, hangars and the tower. Runway idents at the thresholds from OurAirports. 24L and 24R centrelines are 1,000 ft apart; 33L and 33R 3,350 ft. Small hexagons are the YYZ and YTP VOR-DMEs.", true, "map"],
+  ["runways", "Airport layout", "Pearson and Billy Bishop at true size from OpenStreetMap: runways outlined bright at their 200 ft width with centrelines, every taxiway at its width, aprons, terminals, hangars and the tower. Runway idents at the thresholds from OurAirports. 24L and 24R centrelines are 1,000 ft apart; 33L and 33R 3,350 ft. Small hexagons are the YYZ and YTP VOR-DMEs.", true, "map"],
   ["lakes", "Lakes", "Lake Ontario, Simcoe and Erie shorelines.", true, "map"],
   ["rings", "Range rings", "Rings every 10 NM from the Toronto VOR and bearing ticks every 5° around the 50 NM edge, true north up.", true, "map"],
   ["arrivals", "Arrivals", "Flights that end on a Pearson runway: " + stats.by_cat.arrival + " on this day.", true, "traffic"],
@@ -70,6 +70,8 @@ const VEX = 0.55, TRUE_VEX = 0.1646;
 // (CYYZ elevation), so every height is measured from there. A reading below field level (pressure error) sits on the board.
 const FIELD_FT = 569;
 const ft = (h) => (Math.max(0, h - FIELD_FT) / 1000) * VEX;
+const PAVE = 0.05;                                   // aircraft ride this far above the board so they never sink into the runway
+const yOf = (s) => (s.ground ? 0 : ft(s.alt)) + PAVE;
 const R_BOARD = 50;
 const GAP_S = 120;   // a trace gap longer than this is receiver loss: not bridged
 
@@ -220,28 +222,40 @@ const AP = DATA.airport || { runways: [], taxiways: [], aprons: [], buildings: [
 const M_NM = 1 / 1852;
 const apronMat = new THREE.MeshBasicMaterial({ color: isLight ? T.s3 : T.s1, side: THREE.DoubleSide });
 const taxiMat = new THREE.MeshBasicMaterial({ color: isLight ? T.lo : T.s3, side: THREE.DoubleSide });
-const rwyMat = new THREE.MeshBasicMaterial({ color: isLight ? T.mid : T.hi, side: THREE.DoubleSide });
+const rwyMat = new THREE.MeshBasicMaterial({ color: isLight ? T.faint : T.s3, side: THREE.DoubleSide });
+function ribbonEdges(pts, widthNm, y) {
+  const half = widthNm / 2, left = [], right = [];
+  for (let i = 0; i < pts.length; i++) {
+    const [ax, ay] = pts[Math.max(0, i - 1)], [bx, by] = pts[Math.min(pts.length - 1, i + 1)];
+    const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1, nx = -dy / L * half, ny = dx / L * half;
+    left.push(new THREE.Vector3(pts[i][0] + nx, y, -(pts[i][1] + ny))); right.push(new THREE.Vector3(pts[i][0] - nx, y, -(pts[i][1] - ny)));
+  }
+  const ends = [left[0], right[0], right[right.length - 1], left[left.length - 1]];
+  return [new THREE.Line(new THREE.BufferGeometry().setFromPoints(left), LINE.hi), new THREE.Line(new THREE.BufferGeometry().setFromPoints(right), LINE.hi),
+    new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([left[0], right[0], left[left.length - 1], right[right.length - 1]]), LINE.hi)];
+}
 for (const a of AP.aprons) {
   if (a.ring.length < 3) continue;
   const geo = new THREE.ShapeGeometry(new THREE.Shape(a.ring.map(([e, n]) => new THREE.Vector2(e, n))), 1);
-  const m = new THREE.Mesh(geo, apronMat); m.rotation.x = -Math.PI / 2; m.position.y = 0.035; G.runways.add(m);
-  G.runways.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(a.ring.map(([e, n]) => toV(e, n, 0.045))), LINE.faint));
+  const m = new THREE.Mesh(geo, apronMat); m.rotation.x = -Math.PI / 2; m.position.y = 0.012; G.runways.add(m);
+  G.runways.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(a.ring.map(([e, n]) => toV(e, n, 0.014))), LINE.faint));
 }
-for (const t of AP.taxiways) G.runways.add(new THREE.Mesh(ribbon(t.pts, t.width_m * M_NM, 0.04), taxiMat));
+for (const t of AP.taxiways) G.runways.add(new THREE.Mesh(ribbon(t.pts, t.width_m * M_NM, 0.016), taxiMat));
 for (const r of AP.runways) {
-  G.runways.add(new THREE.Mesh(ribbon(r.pts, r.width_m * M_NM, 0.05), rwyMat));
-  G.runways.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(r.pts.map(([e, n]) => toV(e, n, 0.07))), LINE.lo));   // centreline
+  G.runways.add(new THREE.Mesh(ribbon(r.pts, r.width_m * M_NM, 0.02), rwyMat));
+  for (const l of ribbonEdges(r.pts, r.width_m * M_NM, 0.024)) G.runways.add(l);              // bright outline
+  G.runways.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(r.pts.map(([e, n]) => toV(e, n, 0.024))), LINE.lo));   // faint centreline   // centreline
 }
 for (const b of AP.buildings) {
   if (b.ring.length < 3) continue;
   const geo = new THREE.ExtrudeGeometry(new THREE.Shape(b.ring.map(([e, n]) => new THREE.Vector2(e, n))), { depth: b.kind === "terminal" ? 0.012 : 0.008, bevelEnabled: false, curveSegments: 1 });
-  const g = solid(geo, "mid", "lo", 30); g.rotation.x = -Math.PI / 2; g.position.y = 0.04; G.runways.add(g);
+  const g = solid(geo, "mid", "lo", 30); g.rotation.x = -Math.PI / 2; g.position.y = 0.014; G.runways.add(g);
 }
 for (const h of AP.helipads) {
   const geo = new THREE.ShapeGeometry(new THREE.Shape(h.ring.map(([e, n]) => new THREE.Vector2(e, n))), 1);
-  const m = new THREE.Mesh(geo, rwyMat); m.rotation.x = -Math.PI / 2; m.position.y = 0.05; G.runways.add(m);
+  const m = new THREE.Mesh(geo, rwyMat); m.rotation.x = -Math.PI / 2; m.position.y = 0.02; G.runways.add(m);
 }
-for (const t of AP.towers) { const g = solid(new THREE.CylinderGeometry(0.012, 0.016, 0.05, 12), "hi", "lo", 40); g.position.copy(toV(t.pos[0], t.pos[1], 0.065)); G.runways.add(g); }
+for (const t of AP.towers) { const g = solid(new THREE.CylinderGeometry(0.012, 0.016, 0.05, 12), "hi", "lo", 40); g.position.copy(toV(t.pos[0], t.pos[1], 0.04)); G.runways.add(g); }
 // Runway idents at the thresholds (OurAirports), and the VOR-DMEs as small hexagonal pucks beside the field.
 for (const r of DATA.runways) {
   if (!AP.runways.length) {   // fallback when the OpenStreetMap layout is missing
@@ -271,7 +285,7 @@ for (const cat of Object.keys(CAT_COLOR)) {
     for (let i = 1; i < f.pts.length; i++) {
       const a = f.pts[i - 1], b = f.pts[i];
       if (a[6] || b[6] || b[0] - a[0] > GAP_S || Math.hypot(b[1] - a[1], b[2] - a[2]) > 4) continue;   // coverage gaps are not drawn
-      pos.push(a[1], ft(a[3]), -a[2], b[1], ft(b[3]), -b[2]);
+      pos.push(a[1], ft(a[3]) + PAVE, -a[2], b[1], ft(b[3]) + PAVE, -b[2]);
     }
   }
   const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
@@ -344,14 +358,14 @@ function update() {
     if (!s || n >= MAXN) continue;
     if (s.ground && !on("ground")) continue;
     active.push({ f, s, idx: n });
-    const y = s.ground ? 0.08 : ft(s.alt);
+    const y = yOf(s);
     v3.set(s.e, y, -s.n); q.setFromAxisAngle(up, Math.PI - (s.hdg * Math.PI) / 180);
     const size = (s.ground ? 0.3 : 0.52) * glyphK; sc.set(size, size / air.scale.y, size);
     m4.compose(v3, q, sc); glyphs.setMatrixAt(n, m4);
     const isSel = selected === f, isHov = hovered === f;
     color.copy(isSel ? T.lit : isHov ? T.hi : CAT_COLOR[f.cat] || T.lo); glyphs.setColorAt(n, color);
-    m4.compose(v3.set(s.e, 0.04, -s.n), q.identity(), sc.set(glyphK, 1, glyphK)); shadows.setMatrixAt(n, m4);
-    sp[n * 6] = s.e; sp[n * 6 + 1] = 0.04; sp[n * 6 + 2] = -s.n; sp[n * 6 + 3] = s.e; sp[n * 6 + 4] = y; sp[n * 6 + 5] = -s.n;
+    m4.compose(v3.set(s.e, 0.028, -s.n), q.identity(), sc.set(glyphK, 1, glyphK)); shadows.setMatrixAt(n, m4);
+    sp[n * 6] = s.e; sp[n * 6 + 1] = 0.028; sp[n * 6 + 2] = -s.n; sp[n * 6 + 3] = s.e; sp[n * 6 + 4] = y; sp[n * 6 + 5] = -s.n;
     const c = isSel ? T.lit : CAT_COLOR[f.cat] || T.lo;
     let prev = null;
     for (let k = 0; k <= TRAIL_SEG; k++) {
@@ -360,7 +374,7 @@ function update() {
       if (k === TRAIL_SEG) ss = s;
       if (ss && prev && !(ss.ground && prev.ground) && Math.hypot(ss.e - prev.e, ss.n - prev.n) < 4) {
         const o = tcount * 6;
-        tp[o] = prev.e; tp[o + 1] = prev.ground ? 0.08 : ft(prev.alt); tp[o + 2] = -prev.n; tp[o + 3] = ss.e; tp[o + 4] = ss.ground ? 0.08 : ft(ss.alt); tp[o + 5] = -ss.n;
+        tp[o] = prev.e; tp[o + 1] = yOf(prev); tp[o + 2] = -prev.n; tp[o + 3] = ss.e; tp[o + 4] = yOf(ss); tp[o + 5] = -ss.n;
         const fade = 0.15 + 0.85 * (k / TRAIL_SEG);
         tc[o] = c.r * fade; tc[o + 1] = c.g * fade; tc[o + 2] = c.b * fade; tc[o + 3] = c.r * fade; tc[o + 4] = c.g * fade; tc[o + 5] = c.b * fade;
         tcount++;
@@ -380,13 +394,13 @@ function update() {
   const row = pick && active.find((a) => a.f === pick);
   if (row && on("datablocks")) {
     const s = row.s;
-    label.position.set(s.e, (s.ground ? 0.08 : ft(s.alt)) + 0.9, -s.n);
+    label.position.set(s.e, yOf(s) + 0.9, -s.n);
     const alt = s.ground ? "GND" : String(Math.round(s.alt / 100)).padStart(3, "0");
     const txt = row.f.cs + " " + (row.f.type || "") + "<br>" + alt + " " + String(Math.round(s.gs)).padStart(3, "0") + (row.f.cat === "arrival" ? " ↓" + (row.f.rwy || "") : row.f.cat === "departure" ? " ↑" + (row.f.rwy || "") : "") + "<br><span>" + row.f.cat.replace("ytz-", "Billy Bishop ") + "</span>";
     if (labelEl.innerHTML !== txt) labelEl.innerHTML = txt;
     label.visible = true;
   } else label.visible = false;
-  window.__yyz = { active, glyphs, screen: (() => { const a = active.find((x) => !x.s.ground && x.f.cat === 'arrival'); if (!a) return null; const box = renderer.domElement.getBoundingClientRect(); v3.set(a.s.e, ft(a.s.alt) * air.scale.y, -a.s.n).project(camera); return { cs: a.f.cs, x: box.left + (v3.x + 1) / 2 * box.width, y: box.top + (1 - v3.y) / 2 * box.height }; })() };
+  window.__yyz = { active, glyphs, screen: (() => { const a = active.find((x) => !x.s.ground && x.f.cat === 'arrival'); if (!a) return null; const box = renderer.domElement.getBoundingClientRect(); v3.set(a.s.e, yOf(a.s) * air.scale.y, -a.s.n).project(camera); return { cs: a.f.cs, x: box.left + (v3.x + 1) / 2 * box.width, y: box.top + (1 - v3.y) / 2 * box.height }; })() };
   const airborne = active.filter((a) => !a.s.ground).length;
   const text = (tracking ? "following " + tracking.cs + " · " : "") + fmt(time) + " · " + airborne + " airborne · arr " + runwaysInUse(time, "arrival") + " · dep " + runwaysInUse(time, "departure");
   if (readout.textContent !== text) readout.textContent = text;
@@ -401,7 +415,7 @@ function tick(now) {
     if (!row) tracking = null;
     else {
       const s = row.s;
-      v3.set(s.e, (s.ground ? 0.08 : ft(s.alt)) * air.scale.y, -s.n);
+      v3.set(s.e, yOf(s) * air.scale.y, -s.n);
       followOffset.copy(camera.position).sub(controls.target);
       const k = 1 - Math.exp(-dt / 0.35);                                   // the orbit centre eases onto the aircraft
       controls.target.lerp(v3, k);
@@ -429,7 +443,7 @@ function pickAt(ev) {
   if (hits.length) { const row = active[hits[0].instanceId]; if (row) return row.f; }
   let best = null, bd = 18;
   for (const a of active) {
-    v3.set(a.s.e, (a.s.ground ? 0.08 : ft(a.s.alt)) * air.scale.y, -a.s.n).project(camera);
+    v3.set(a.s.e, yOf(a.s) * air.scale.y, -a.s.n).project(camera);
     const d = Math.hypot((v3.x - ndc.x) * box.width / 2, (v3.y - ndc.y) * box.height / 2);
     if (d < bd) { bd = d; best = a.f; }
   }
